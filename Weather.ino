@@ -1,6 +1,18 @@
+#include <AccelStepper.h>
 #include <ArduinoJson.h>
 #include <Ethernet.h>
+#include <ezButton.h>
 #include <SPI.h>
+
+#define FULLSTEP 4
+#define MAX_POSITION 2038
+
+ezButton limitSwitch(40);
+AccelStepper stepper(FULLSTEP, 8, 10, 9, 11);
+
+bool isStopped = false;
+bool isResetting = true;
+int currentState = 0; // 0 - loading, 1 displaying
 
 void setup() {
   Serial.println("Setting up");
@@ -8,96 +20,45 @@ void setup() {
   Serial.begin(9600);
   while (!Serial) continue;
 
-  // Initialize Ethernet library
-  byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-  if (!Ethernet.begin(mac)) {
-    Serial.println(F("Failed to configure Ethernet"));
-    return;
-  }
-  delay(1000);
+  limitSwitch.setDebounceTime(50); // set debounce time to 50 milliseconds
 
-  Serial.println(F("Connecting..."));
-
-  // Connect to HTTP server
-  EthernetClient client;
-  client.setTimeout(10000);
-  if (!client.connect("d2boyfgp9fovjg.cloudfront.net", 80)) {
-    Serial.println(F("Connection failed"));
-    return;
-  }
-
-  Serial.println(F("Connected!"));
-
-  // Send HTTP request
-  client.println(F("GET /simple-forecast?office=ALY&gridX=52&gridY=15 HTTP/1.0"));
-  client.println(F("Host: d2boyfgp9fovjg.cloudfront.net"));
-  client.println(F("Connection: close"));
-  if (client.println() == 0) {
-    Serial.println(F("Failed to send request"));
-    client.stop();
-    return;
-  }
-
-  // Check HTTP status
-  char status[32] = {0};
-  client.readBytesUntil('\r', status, sizeof(status));
-  if (strcmp(status, "HTTP/1.1 200 OK") != 0) {
-    Serial.print(F("Unexpected response: "));
-    Serial.println(status);
-    client.stop();
-    return;
-  }
-
-  // Skip HTTP headers
-  char endOfHeaders[] = "\r\n\r\n";
-  if (!client.find(endOfHeaders)) {
-    Serial.println(F("Invalid response"));
-    client.stop();
-    return;
-  }
-
-  // Allocate the JSON document
-  // Use arduinojson.org/v6/assistant to compute the capacity.
-  DynamicJsonDocument doc(1024);
-
-  // Parse JSON object
-  DeserializationError error = deserializeJson(doc, client);
-  if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
-    client.stop();
-    return;
-  }
-
-  // const char* foo = doc["sensor"];
-
-  // // Extract values
-  // Serial.println(F("Response:"));
-  // // Serial.println(doc["sensor"]);
-  // Serial.println(foo);
-  // Serial.println(doc["time"].as<long>());
-  // Serial.println(doc["data"][0].as<float>(), 6);
-  // Serial.println(doc["data"][1].as<float>(), 6);
-
-  Serial.println("Hello");
-
-  for (JsonObject data_item : doc["data"].as<JsonArray>()) {
-
-    int data_item_hi = data_item["hi"]; // 999, 999, 999, 999
-    int data_item_lo = data_item["lo"]; // 999, 999, 999, 999
-    const char* data_item_forecast = data_item["forecast"]; // "Mostly Cloudy then Slight Chance Light Rain ..."
-
-    Serial.println(data_item_hi);
-    Serial.println(data_item_lo);
-    Serial.println(data_item_forecast);
-
-  }
-
-
-  // Disconnect
-  client.stop();
+  stepper.setMaxSpeed(1000);   // set the maximum speed
+  stepper.setAcceleration(1000); // set acceleration
+  stepper.setSpeed(1000);         // set initial speed
+  stepper.setCurrentPosition(0); // set position
+  stepper.moveTo(MAX_POSITION);
+  Serial.println("done");
 }
 
 void loop() {
-  // not used in this example
+  limitSwitch.loop(); // MUST call the loop() function first
+  Serial.println(stepper.distanceToGo());
+
+  // When limit switch is pressed, the stepper is reset.
+  if(limitSwitch.isPressed()) {
+    // isStopped = true;
+    isResetting = false;
+    delay(500);
+    stepper.setCurrentPosition(0);
+    stepper.moveTo(-1580); // <-- determine position here for forecast, etc.
+    // isStopped = false;
+  }
+
+  // if (isStopped == false && isResetting) {
+  if (isResetting) {
+    //  Serial.println("Not Stopped");
+    if (stepper.distanceToGo() == 0) { // loop the motor in case it reaches max before resetting
+      stepper.setCurrentPosition(0);   // reset position to 0
+      stepper.moveTo(MAX_POSITION);    // move the motor to maximum position again
+    }
+    //stepper.run();
+  } else {
+    // without calling stepper.run() function, motor stops immediately
+    // NOTE: stepper.stop() function does NOT stops motor immediately
+    // Serial.println(F("The stepper motor is STOPPED"));
+    //stepper.run();
+
+    
+  }
+  stepper.run();
 }

@@ -1,0 +1,14 @@
+Error - straight  = -1880
+
+233.33 intervals
+start: 180
+end: 1580
+diff: 1400
+
+180 snow
+413 413.33 sleet
+647 646.66 wind
+880 879.99 rain
+1113 1113.32 cloud
+1347 1346.65 part-sun
+1580 sun

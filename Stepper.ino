@@ -54,12 +54,11 @@
 //   Serial.println("dtg:");
 //   Serial.println(myStepper.distanceToGo());
 // 	// Change direction once the motor reaches target position
-// 	if (myStepper.distanceToGo() == 0) 
+// 	if (myStepper.distanceToGo() == 0)
 // 		myStepper.moveTo(-myStepper.currentPosition());
 
 // 	// Move the motor one step
 // 	myStepper.run();
 
-  
-// }
 
+// }
