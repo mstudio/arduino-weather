@@ -1,3 +1,11 @@
+/**
+ 
+ TODO: connect a switch which changes the "currentDay" number from 0 to 1. 
+ See if that automatically updates the position of the gauges.
+
+**/
+
+
 #include <AccelStepper.h>
 #include <ArduinoJson.h>
 #include <Ethernet.h>
@@ -14,13 +22,16 @@ AccelStepper stepper(FULLSTEP, 8, 10, 9, 11);
 bool isStopped = false;
 bool isResetting = true;
 
-int day1_hi;
-int day1_lo;
-const char* day1_forecast;
+typedef struct  {
+  char* forecast;
+  int hi;
+  int lo;
+} dayStruct;
 
-int day2_hi;
-int day2_lo;
-const char* day2_forecast;
+dayStruct days[2];
+int currentDay = 0;
+
+
 
 void setup() {
   Serial.println("Setting up");
@@ -101,34 +112,19 @@ void setup() {
   Serial.println("Hello");
 
   int i = 0;
-
   for (JsonObject data_item : doc["data"].as<JsonArray>()) {
 
     int data_item_hi = data_item["hi"]; // 999, 999, 999, 999
     int data_item_lo = data_item["lo"]; // 999, 999, 999, 999
     const char* data_item_forecast = data_item["forecast"]; // "Mostly Cloudy then Slight Chance Light Rain ..."
 
-    if (i == 0) {
-      Serial.println("setting day 1");
-      Serial.println(data_item_hi);
-      day1_hi = data_item_hi;
-      day1_lo = data_item_lo;
-      day1_forecast = data_item_forecast;
-    }
-    if (i == 1) {
-      day2_hi = data_item_hi;
-      day2_lo = data_item_lo;
-      day2_forecast = data_item_forecast;      
-    }
+    days[i].hi = data_item_hi;
+    days[i].lo = data_item_lo;
+    days[i].forecast = data_item_forecast;
+
     i = i + 1;
   }
   
-  Serial.println("day 1");
-  Serial.println(day1_forecast);
-  Serial.println("day 2");
-  Serial.println(day2_forecast);
-
-
   // Disconnect
   client.stop();  
 }
@@ -144,8 +140,12 @@ void loop() {
     delay(500);
     stepper.setCurrentPosition(0);
 
+    dayStruct d = days[currentDay];
+    Serial.println("go to");
+    Serial.println(d.forecast);
+
     int step = 1880; // error
-    const char* f = day1_forecast;
+    const char* f = d.forecast;
 
     if (!strcmp(f, "snow")) {
       step = 180;
@@ -157,9 +157,7 @@ void loop() {
       step = 647;
     }
     if (!strcmp(f, "rain")){
-      Serial.println("resetting step to");
       step = 880;
-      Serial.println(step);
     }
     if (!strcmp(f, "cloud")) {
       step = 1113;
